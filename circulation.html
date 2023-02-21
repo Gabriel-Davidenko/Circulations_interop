@@ -6,12 +6,29 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+        integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
+        integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM=" crossorigin=""></script>
+    <script src="circulation.js" type="module"></script>
+
 </head>
+
+<style>
+    #map {
+        height: 50vh;
+    }
+</style>
 
 <body>
 
     <div id="container">
 
+        <div>
+            <h2>Carte</h2>
+            <div id="map"></div>
+
+        </div>
         <div id="apiLinks">
             <table>
                 <thead>
@@ -25,11 +42,12 @@
                 </tbody>
             </table>
         </div>
+
+
     </div>
 
 </body>
 
 
-<script src="circulation.js" type="module"></script>
 
 </html>
