@@ -1,46 +1,65 @@
+import papaparse from 'https://cdn.jsdelivr.net/npm/papaparse@5.3.2/+esm'
+
+
 const URL_API_IP = 'http://ip-api.com/json/';
 const URL_API_CIRCULATION = 'https://carto.g-ny.org/data/cifs/cifs_waze_v2.json';
-async function fetchUrl(url) {
-    const response = fetch(url, {
-        // headers: {
-        //     "Content-Type": "application/json",
-        // }
+const URL_API_COVID = 'https://www.data.gouv.fr/fr/datasets/r/5c4e1452-3850-4b59-b11c-3dd51d7fb8b5';
+
+async function fetchUrl(url, contentTypeHeader) {
+    const options = {
+        headers: {
+            "Content-Type": `${contentTypeHeader}`,
+        }
     }
+    const response = fetch(url, contentTypeHeader ? options : undefined
     )
-    return (await response).json();
+    return (await response)
 }
 
 async function getClientIp() {
     const url = 'https://api.ipify.org?format=json';
-    return await fetchUrl(url);
+    return (await fetchUrl(url)).json();
 
 }
 
-
 async function getLocalisation(ip) {
-    return await fetchUrl(`${URL_API_IP}${ip}`);
+    return (await fetchUrl(`${URL_API_IP}${ip}`)).json();
 }
 
 async function getCirculation() {
-    return await fetchUrl(URL_API_CIRCULATION)
+    return (await fetchUrl(URL_API_CIRCULATION)).json()
 
 }
 async function getCovid() {
-    return await fetch('https://www.data.gouv.fr/5e7e104ace2080d9162b61d8')
+    return (await fetchUrl(URL_API_COVID, 'application/text')).text()
+}
+
+function csvToJson(csv) {
+    return papaparse.parse(csv, { header: true })
 }
 //---------------------------Main----------------------------
 const clientIp = await getClientIp();
 const clientLocalisation = await getLocalisation(clientIp.ip)
 const ciruclation = await getCirculation()
-// const covid = await getCovid();
+const covid = await getCovid();
+const covidJson = csvToJson(covid);
+const clientDep = clientLocalisation.zip.substring(0, 2);
+const covidDep = covidJson.data.filter(data => data.dep === clientDep)
+
+/**
+ * @todo delete
+*/
 console.log({
     clientIp: clientIp,
     clientLocalisation: clientLocalisation,
     circulation: ciruclation,
-    // covid: covid
+    covid: covid,
+    covidJson: covidJson,
+    clientDep: clientDep,
+    covidDep: covidDep
 })
 
-
+document.getElementById('departementCovid').textContent = clientLocalisation.zip
 
 
 const map = L.map('map').setView([clientLocalisation.lat, clientLocalisation.lon], 13);
@@ -66,3 +85,7 @@ ciruclation.incidents.forEach(incident => {
     incidentMarker.bindPopup(`<b>${description}</b><p>Rue: ${street}</p><p>Du: ${startTime} au ${endTime}</p>`)
 
 });
+
+/**
+ * @todo graph and air
+ */
