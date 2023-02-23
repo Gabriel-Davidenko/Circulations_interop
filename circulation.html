@@ -10,9 +10,7 @@
         integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
         integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM=" crossorigin=""></script>
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.2.1/chart.min.js"
-        integrity="sha512-v3ygConQmvH0QehvQa6gSvTE2VdBZ6wkLOlmK7Mcy2mZ0ZF9saNbbk19QeaoTHdWIEiTlWmrwAL4hS8ElnGFbA=="
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 
@@ -33,7 +31,9 @@
         </div>
         <div>
             <h2>Etat de la pandémie du Covid-19 dans le département de <span id="departementCovid"></span></h2>
-            <div id="chart"></div>
+            <div>
+                <canvas id="myChart"></canvas>
+            </div>
         </div>
         <div id="apiLinks">
             <table>
@@ -163,20 +163,11 @@
         const clientIp = await getClientIp();
         const clientLocalisation = await getLocalisation(clientIp.ip)
         const ciruclation = await getCirculation()
-        const covid = await getCovid();
-        const covidJson = JSON.parse(CSV2JSON(covid));
+        const covidList = await getCovid();
+        const covidJsonList = JSON.parse(CSV2JSON(covidList));
         const clientDep = clientLocalisation.postal.substring(0, 2);
-        const covidDep = covidJson.filter(data => data.dep === clientDep)
+        const covidDepList = covidJsonList.filter(data => data.dep === clientDep)
 
-        console.log({
-            clientIp: clientIp,
-            clientLocalisation: clientLocalisation,
-            circulation: ciruclation,
-            covid: covid,
-            covidJson: covidJson,
-            clientDep: clientDep,
-            covidDep: covidDep
-        })
 
         document.getElementById('departementCovid').textContent = clientLocalisation.zip
 
@@ -204,12 +195,52 @@
 
         });
 
-        const chartHtml = document.getElementById('chart');
+        //Récupèration des données pertinente pour le diagramme
+        const lastDataCovid = covidDepList[covidDepList.length - 1];
+        const selectedData = {
+            dchosp: lastDataCovid.dchosp,
+            hosp: lastDataCovid.hosp,
+            incid_dchosp: lastDataCovid.incid_dchosp,
+            incid_hosp: lastDataCovid.incid_hosp,
+            incid_rad: lastDataCovid.incid_rad,
+            incid_rea: lastDataCovid.incid_rea,
+        };
+        const labelsList = Object.getOwnPropertyNames(selectedData);
+        const ctx = document.getElementById('myChart');
+
+        //Diagrame
+        new Chart(ctx, {
+            type: 'polarArea',
+            data: {
+                labels: labelsList,
+                datasets: [{
+                    label: `Chiffes Covid 19 depuis le ${covidDepList[0].date}`,
+                    data: Object.values(selectedData),
+                    borderWidth: 1,
+                    backgroundColor: [
+                        'rgb(255, 99, 132)',
+                        'rgb(75, 192, 192)',
+                        'rgb(255, 205, 86)',
+                        'rgb(201, 203, 207)',
+                        'rgb(54, 162, 235)',
+                        'rgb(238, 130, 238)',
+                    ]
+
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
 
     }
 
     /**
-     * @todo graph and air
+     * @todo air
      */
     main();
 
