@@ -10,10 +10,11 @@
         integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
         integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM=" crossorigin=""></script>
-
-    <script src="circulation.js" type="module"></script>
-
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.2.1/chart.min.js"
+        integrity="sha512-v3ygConQmvH0QehvQa6gSvTE2VdBZ6wkLOlmK7Mcy2mZ0ZF9saNbbk19QeaoTHdWIEiTlWmrwAL4hS8ElnGFbA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
 </head>
+
 
 <style>
     #map {
@@ -32,6 +33,7 @@
         </div>
         <div>
             <h2>Etat de la pandémie du Covid-19 dans le département de <span id="departementCovid"></span></h2>
+            <div id="chart"></div>
         </div>
         <div id="apiLinks">
             <table>
@@ -52,6 +54,168 @@
 
 </body>
 
+
+<script>
+    const URL_API_LOCALISATION = 'https://ipapi.co/';
+    const URL_API_LOCALISATION_2 = 'json/';
+    const URL_API_CIRCULATION = 'https://carto.g-ny.org/data/cifs/cifs_waze_v2.json';
+    const URL_API_COVID = 'https://www.data.gouv.fr/fr/datasets/r/5c4e1452-3850-4b59-b11c-3dd51d7fb8b5';
+
+    async function getClientIp() {
+        const url = 'https://api.ipify.org?format=json';
+        return (await fetch(url)).json();
+
+    }
+
+    async function getLocalisation(ip) {
+        const url = ip ? `${URL_API_LOCALISATION}${ip}/${URL_API_LOCALISATION_2}` : `${URL_API_LOCALISATION}/${URL_API_LOCALISATION_2}`;
+        console.log(url)
+        return (await fetch(url)).json();
+    }
+
+    async function getCirculation() {
+        return (await fetch(URL_API_CIRCULATION)).json()
+
+    }
+    async function getCovid() {
+        return (await fetch(URL_API_COVID)).text()
+    }
+
+
+    /*
+     * Original author: sturtevant 
+     * found on: http://jsfiddle.net/sturtevant/AZFvQ/ 
+     * function CSVToArray and CSV2JSON
+    */
+    function CSVToArray(strData, strDelimiter) {
+        // Check to see if the delimiter is defined. If not,
+        // then default to comma.
+        strDelimiter = (strDelimiter || ",");
+        // Create a regular expression to parse the CSV values.
+        var objPattern = new RegExp((
+            // Delimiters.
+            "(\\" + strDelimiter + "|\\r?\\n|\\r|^)" +
+            // Quoted fields.
+            "(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" +
+            // Standard fields.
+            "([^\"\\" + strDelimiter + "\\r\\n]*))"), "gi");
+        // Create an array to hold our data. Give the array
+        // a default empty first row.
+        var arrData = [[]];
+        // Create an array to hold our individual pattern
+        // matching groups.
+        var arrMatches = null;
+        // Keep looping over the regular expression matches
+        // until we can no longer find a match.
+        while (arrMatches = objPattern.exec(strData)) {
+            // Get the delimiter that was found.
+            var strMatchedDelimiter = arrMatches[1];
+            // Check to see if the given delimiter has a length
+            // (is not the start of string) and if it matches
+            // field delimiter. If id does not, then we know
+            // that this delimiter is a row delimiter.
+            if (strMatchedDelimiter.length && (strMatchedDelimiter != strDelimiter)) {
+                // Since we have reached a new row of data,
+                // add an empty row to our data array.
+                arrData.push([]);
+            }
+            // Now that we have our delimiter out of the way,
+            // let's check to see which kind of value we
+            // captured (quoted or unquoted).
+            if (arrMatches[2]) {
+                // We found a quoted value. When we capture
+                // this value, unescape any double quotes.
+                var strMatchedValue = arrMatches[2].replace(
+                    new RegExp("\"\"", "g"), "\"");
+            } else {
+                // We found a non-quoted value.
+                var strMatchedValue = arrMatches[3];
+            }
+            // Now that we have our value string, let's add
+            // it to the data array.
+            arrData[arrData.length - 1].push(strMatchedValue);
+        }
+        // Return the parsed data.
+        return (arrData);
+    }
+
+    function CSV2JSON(csv) {
+        var array = CSVToArray(csv);
+        var objArray = [];
+        for (var i = 1; i < array.length; i++) {
+            objArray[i - 1] = {};
+            for (var k = 0; k < array[0].length && k < array[i].length; k++) {
+                var key = array[0][k];
+                objArray[i - 1][key] = array[i][k]
+            }
+        }
+
+        var json = JSON.stringify(objArray);
+        var str = json.replace(/},/g, "},\r\n");
+
+        return str;
+    }
+
+
+
+
+    async function main() {
+        const clientIp = await getClientIp();
+        const clientLocalisation = await getLocalisation(clientIp.ip)
+        const ciruclation = await getCirculation()
+        const covid = await getCovid();
+        const covidJson = JSON.parse(CSV2JSON(covid));
+        const clientDep = clientLocalisation.postal.substring(0, 2);
+        const covidDep = covidJson.filter(data => data.dep === clientDep)
+
+        console.log({
+            clientIp: clientIp,
+            clientLocalisation: clientLocalisation,
+            circulation: ciruclation,
+            covid: covid,
+            covidJson: covidJson,
+            clientDep: clientDep,
+            covidDep: covidDep
+        })
+
+        document.getElementById('departementCovid').textContent = clientLocalisation.zip
+
+        const map = L.map('map').setView([clientLocalisation.latitude, clientLocalisation.longitude], 13);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+        const userIcon = new L.Icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        const clientMarker = L.marker([clientLocalisation.latitude, clientLocalisation.longitude], { icon: userIcon }).addTo(map);
+        clientMarker.bindPopup("Vous êtes ici ^^")
+        ciruclation.incidents.forEach(incident => {
+            const coord = incident.location.polyline.split(' ');
+            const { lat, lon, description, startTime, endTime, street } = { lat: coord[0], lon: coord[1], description: incident.description, startTime: incident.starttime, endTime: incident.endtime, street: incident.location.street }
+            const incidentMarker = L.marker([lat, lon]).addTo(map)
+            incidentMarker.bindPopup(`<b>${description}</b><p>Rue: ${street}</p><p>Du: ${startTime} au ${endTime}</p>`)
+
+        });
+
+        const chartHtml = document.getElementById('chart');
+
+    }
+
+    /**
+     * @todo graph and air
+     */
+    main();
+
+
+
+</script>
 
 
 </html>
